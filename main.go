@@ -39,7 +39,6 @@ func main() {
 
 	uiEvents := ui.PollEvents()
 	ticker := time.NewTicker(time.Second).C
-	previousKey := ""
 
 	for {
 		select {
@@ -47,9 +46,9 @@ func main() {
 			switch e.ID {
 			case "q", "<C-c>":
 				return
-			case "j", "<Down>":
+			case "<Down>":
 				T.List.ScrollDown()
-			case "k", "<Up>":
+			case "<Up>":
 				T.List.ScrollUp()
 			case "<C-d>":
 				T.List.ScrollHalfPageDown()
@@ -59,21 +58,31 @@ func main() {
 				T.List.ScrollPageDown()
 			case "<C-b>":
 				T.List.ScrollPageUp()
-			case "g":
-				if previousKey == "g" {
-					T.List.ScrollTop()
-				}
+			case "w":
+				T.EventMessages.ScrollUp()
+			case "s":
+				T.EventMessages.ScrollDown()
 			case "<Home>":
 				T.List.ScrollTop()
-			case "G", "<End>":
+			case "<End>":
 				T.List.ScrollBottom()
 			case "<Enter>":
-				el := strings.Split(T.List.Rows[T.List.SelectedRow], " ")
-				e := el[0]
-				stream := T.StreamsList[e]
+				stream := getSelectedStream()
 				if stream != nil {
-					T.EventMessages.Title = fmt.Sprintf("Event messages list: %s", e)
-					T.EventMessages.Text = stream.GetMessagesList()
+					T.EventMessages.ScrollTop()
+					T.EventMessages.Title = fmt.Sprintf("Event messages list: %s", stream.Name)
+					T.EventMessages.Rows = stream.GetMessagesList()
+				}
+			case "r":
+				stream, ID := getSelectedStream(), getSelectedMessageID()
+				if stream != nil && ID != "" {
+					message, err := stream.GetMessage(ID)
+					if err != nil {
+						break
+					}
+
+					T.Message.Title = fmt.Sprintf("Message %s", message.ID)
+					T.Message.Text = fmt.Sprintf("%v", message.Content)
 				}
 			case "<Resize>":
 				payload := e.Payload.(ui.Resize)
@@ -82,17 +91,30 @@ func main() {
 				ui.Render(T.ToGrid())
 			}
 
-			if previousKey == "g" {
-				previousKey = ""
-			} else {
-				previousKey = e.ID
-			}
-
 			ui.Render(T.ToGrid())
 		case <-ticker:
 			ui.Render(T.ToGrid())
 		}
 	}
+}
+
+func getSelectedStream() *pkg.Stream {
+	if len(T.List.Rows) == 0 {
+		return nil
+	}
+
+	el := strings.Split(T.List.Rows[T.List.SelectedRow], " ")
+	e := el[0]
+	stream := T.StreamsList[e]
+	return stream
+}
+
+func getSelectedMessageID() string {
+	if len(T.EventMessages.Rows) == 0 {
+		return ""
+	}
+
+	return T.EventMessages.Rows[T.EventMessages.SelectedRow]
 }
 
 func startMonitoring(c *redis.Client) {

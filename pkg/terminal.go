@@ -9,19 +9,25 @@ import (
 
 type Terminal struct {
 	StreamsList   map[string]*Stream
-	EventMessages *widgets.Paragraph
+	EventMessages *widgets.List
 	List          *widgets.List
+	Message       *widgets.Paragraph
 	Grid          *ui.Grid
 }
 
 func NewTerminal() *Terminal {
-	l := widgets.NewList()
-	l.Title = "List of events"
-	l.Rows = []string{""}
-	l.SelectedRowStyle.Fg = ui.ColorYellow
+	eList := widgets.NewList()
+	eList.Title = "List of events"
+	eList.Rows = []string{""}
+	eList.SelectedRowStyle.Fg = ui.ColorYellow
+
+	mList := widgets.NewList()
+	mList.Title = "Event messages list:"
+	mList.Rows = []string{""}
+	mList.SelectedRowStyle.Fg = ui.ColorBlue
 
 	p := widgets.NewParagraph()
-	p.Title = "Event messages list: "
+	p.Title = "Message"
 	p.Text = ""
 
 	g := ui.NewGrid()
@@ -30,16 +36,19 @@ func NewTerminal() *Terminal {
 
 	g.Set(
 		ui.NewRow(1.0/2,
-			ui.NewCol(1.0/2, l),
-			ui.NewCol(1.0/2, p),
-
+			ui.NewCol(1.0/2, eList),
+			ui.NewCol(1.0/2, mList),
+		),
+		ui.NewRow(1.0/2,
+			ui.NewCol(1.0, p),
 		),
 	)
 
 	return &Terminal{
-		EventMessages: p,
-		List:          l,
+		EventMessages: mList,
+		List:          eList,
 		Grid:          g,
+		Message:       p,
 	}
 }
 

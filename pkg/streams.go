@@ -1,6 +1,9 @@
 package pkg
 
-import "fmt"
+import (
+	"errors"
+	"sort"
+)
 
 type Stream struct {
 	Name          string
@@ -19,11 +22,22 @@ func (s *Stream) AddMessage(id string, message map[string]interface{}) {
 	}
 }
 
-func (s *Stream) GetMessagesList() string {
-	var list string
-	for _, m :=range s.Messages {
-		list += fmt.Sprintf("%s\r\n", m.ID)
+func (s *Stream) GetMessage(ID string) (*StreamMessage, error) {
+	m, ok := s.Messages[ID]
+	if !ok {
+		return nil, errors.New("there are no messages with given ID")
 	}
+
+	return &m, nil
+}
+
+func (s *Stream) GetMessagesList() []string {
+	var list []string
+	for _, m :=range s.Messages {
+		list = append(list, m.ID)
+	}
+
+	sort.Strings(list)
 
 	return list
 }
