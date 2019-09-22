@@ -82,7 +82,7 @@ func main() {
 					}
 
 					T.Message.Title = fmt.Sprintf("Message %s", message.ID)
-					T.Message.Text = fmt.Sprintf("%v", message.Content)
+					T.Message.Text = message.ParseContent()
 				}
 			case "<Resize>":
 				payload := e.Payload.(ui.Resize)

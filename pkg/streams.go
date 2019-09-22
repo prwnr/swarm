@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -45,4 +46,14 @@ func (s *Stream) GetMessagesList() []string {
 type StreamMessage struct {
 	ID      string
 	Content map[string]interface{}
+}
+
+func (m *StreamMessage) ParseContent() string {
+	var content string
+	for k, v := range m.Content {
+		content += fmt.Sprintf("Field: %s\r\n", k)
+		content += fmt.Sprintf("Value: %s\r\n\r\n", v)
+	}
+
+	return content
 }

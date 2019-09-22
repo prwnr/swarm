@@ -35,11 +35,11 @@ func NewTerminal() *Terminal {
 	g.SetRect(0, 0, termWidth, termHeight)
 
 	g.Set(
-		ui.NewRow(1.0/2,
+		ui.NewRow(0.33,
 			ui.NewCol(1.0/2, eList),
 			ui.NewCol(1.0/2, mList),
 		),
-		ui.NewRow(1.0/2,
+		ui.NewRow(0.66,
 			ui.NewCol(1.0, p),
 		),
 	)
