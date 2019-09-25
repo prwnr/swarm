@@ -12,15 +12,19 @@ type Stream struct {
 	Messages      map[string]StreamMessage
 }
 
-func (s *Stream) AddMessage(id string, message map[string]interface{}) {
+func (s *Stream) AddMessage(id string, message map[string]interface{}) StreamMessage {
 	if s.Messages == nil {
 		s.Messages = make(map[string]StreamMessage)
 	}
 
-	s.Messages[id] = StreamMessage{
+	streamMessage := StreamMessage{
 		ID:      id,
 		Content: message,
 	}
+
+	s.Messages[id] = streamMessage
+
+	return streamMessage
 }
 
 func (s *Stream) GetMessage(ID string) (*StreamMessage, error) {

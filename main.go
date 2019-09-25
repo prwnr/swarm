@@ -27,23 +27,23 @@ func main() {
 	app = tview.NewApplication()
 	monitor := &pkg.Monitor{
 		Redis:   client,
-		App:     app,
 		Streams: &pkg.Streams{},
 	}
 
-	events := tview.NewList().ShowSecondaryText(true)
-	events.SetBorder(true).SetBackgroundColor(color)
-	events.SetSelectedBackgroundColor(color).SetSecondaryTextColor(tcell.ColorWhite)
-	events.SetTitle("Active Streams list")
+	events, messages := pkg.MakeViews(app)
 
-	monitor.Events = events
+	monitor.OnNewStream(func(stream pkg.Stream) {
+		events.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount), 0, nil)
+		app.QueueUpdate(func() {})
+	})
 
-	messages := tview.NewList().ShowSecondaryText(false)
-	messages.SetBorder(true).SetBackgroundColor(color)
-	messages.SetSelectedBackgroundColor(color)
-	messages.SetTitle("Stream messages list")
+	monitor.OnNewMessage(func(stream pkg.Stream, message pkg.StreamMessage) {
+		key := events.FindItems(stream.Name, "", true, false)
 
-	app.SetFocus(events)
+		app.QueueUpdateDraw(func() {
+			events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount))
+		})
+	})
 
 	go monitor.StartMonitoring()
 
@@ -73,7 +73,7 @@ func main() {
 			messages.AddItem(m, s.Name, 0, nil)
 		}
 
-		app.QueueUpdateDraw(func() {})
+		app.QueueUpdate(func() {})
 		app.SetFocus(messages)
 	})
 
@@ -92,7 +92,7 @@ func main() {
 		_, _ = fmt.Fprint(box, m.ParseContent())
 	})
 
-	app.SetInputCapture(func (event *tcell.EventKey) *tcell.EventKey {
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			app.SetFocus(events)
 		}

@@ -3,18 +3,17 @@ package pkg
 import (
 	"fmt"
 	"github.com/go-redis/redis"
-	"github.com/rivo/tview"
 	"strings"
 )
 
-type Monitor struct {
-	Redis   *redis.Client
-	App     *tview.Application
-	Events  *tview.List
-	Streams *Streams
-}
-
 const StreamCommand = "XADD"
+
+type Monitor struct {
+	Redis           *redis.Client
+	Streams         *Streams
+	streamHandlers  []func(stream Stream)
+	messageHandlers []func(stream Stream, message StreamMessage)
+}
 
 func (m *Monitor) StartMonitoring() {
 	var events []string
@@ -41,25 +40,20 @@ func (m *Monitor) StartMonitoring() {
 
 			events = append(events, e)
 			stream := &Stream{Name: e}
-			m.Events.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount), 0, nil)
-			m.App.QueueUpdate(func() {})
 			m.Streams.Push(stream)
+			m.emitStreamAdded(*stream)
 			go m.readEvent(stream)
 		}
 	}
 }
 
 func (m *Monitor) readEvent(stream *Stream) {
-	key := m.Events.FindItems(stream.Name, "", true, false)
-
 	messages, _ := m.Redis.XRange(stream.Name, "-", "+").Result()
 	for _, mes := range messages {
 		_ = mes
 		stream.MessagesCount++
-		stream.AddMessage(mes.ID, mes.Values)
-		m.App.QueueUpdateDraw(func() {
-			m.Events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount))
-		})
+		newMess := stream.AddMessage(mes.ID, mes.Values)
+		m.emitMessageAdded(*stream, newMess)
 	}
 
 	for {
@@ -71,12 +65,31 @@ func (m *Monitor) readEvent(stream *Stream) {
 			_ = xStream.Stream
 			for _, mes := range xStream.Messages {
 				stream.MessagesCount++
-				stream.AddMessage(mes.ID, mes.Values)
-				m.App.QueueUpdateDraw(func() {
-					m.Events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount))
-				})
+				newMess := stream.AddMessage(mes.ID, mes.Values)
+				m.emitMessageAdded(*stream, newMess)
 			}
 		}
+	}
+}
+
+
+func (m *Monitor) OnNewStream(handler func(stream Stream)) {
+	m.streamHandlers = append(m.streamHandlers, handler)
+}
+
+func (m *Monitor) OnNewMessage(handler func(stream Stream, message StreamMessage)) {
+	m.messageHandlers = append(m.messageHandlers, handler)
+}
+
+func (m *Monitor) emitStreamAdded(stream Stream) {
+	for _, l := range m.streamHandlers {
+		l(stream)
+	}
+}
+
+func (m *Monitor) emitMessageAdded(stream Stream, message StreamMessage) {
+	for _, l := range m.messageHandlers {
+		l(stream, message)
 	}
 }
 
