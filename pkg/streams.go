@@ -34,7 +34,7 @@ func (s *Stream) GetMessage(ID string) (*StreamMessage, error) {
 
 func (s *Stream) GetMessagesList() []string {
 	var list []string
-	for _, m :=range s.Messages {
+	for _, m := range s.Messages {
 		list = append(list, m.ID)
 	}
 
@@ -56,4 +56,30 @@ func (m *StreamMessage) ParseContent() string {
 	}
 
 	return content
+}
+
+type Streams struct {
+	Collection map[string]*Stream
+}
+
+func (s *Streams) Push(stream *Stream) {
+	if s.Collection == nil {
+		s.Collection = make(map[string]*Stream)
+	}
+
+	if _, ok := s.Collection[stream.Name]; ok {
+		return
+	}
+
+	s.Collection[stream.Name] = stream
+}
+
+func (s *Streams) Find(key string) *Stream {
+	stream, ok := s.Collection[key]
+
+	if !ok {
+		return nil
+	}
+
+	return stream
 }
