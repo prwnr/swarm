@@ -15,6 +15,13 @@ type Monitor struct {
 	messageHandlers []func(stream Stream, message StreamMessage)
 }
 
+func NewMonitor(c *redis.Client) *Monitor {
+	return &Monitor{
+		Redis:   c,
+		Streams: &Streams{},
+	}
+}
+
 func (m *Monitor) StartMonitoring() {
 	var events []string
 	var errorsCount int
@@ -71,7 +78,6 @@ func (m *Monitor) readEvent(stream *Stream) {
 		}
 	}
 }
-
 
 func (m *Monitor) OnNewStream(handler func(stream Stream)) {
 	m.streamHandlers = append(m.streamHandlers, handler)
