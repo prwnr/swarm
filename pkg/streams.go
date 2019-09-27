@@ -8,7 +8,6 @@ import (
 
 type Stream struct {
 	Name          string
-	MessagesCount int
 	Messages      map[string]StreamMessage
 }
 
@@ -45,6 +44,10 @@ func (s *Stream) GetMessagesList() []string {
 	sort.Strings(list)
 
 	return list
+}
+
+func (s *Stream) MessagesCount() int {
+	return len(s.Messages)
 }
 
 type StreamMessage struct {

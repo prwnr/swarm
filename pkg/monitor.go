@@ -58,7 +58,6 @@ func (m *Monitor) readEvent(stream *Stream) {
 	messages, _ := m.Redis.XRange(stream.Name, "-", "+").Result()
 	for _, mes := range messages {
 		_ = mes
-		stream.MessagesCount++
 		newMess := stream.AddMessage(mes.ID, mes.Values)
 		m.emitMessageAdded(*stream, newMess)
 	}
@@ -71,7 +70,6 @@ func (m *Monitor) readEvent(stream *Stream) {
 		for _, xStream := range newMessages {
 			_ = xStream.Stream
 			for _, mes := range xStream.Messages {
-				stream.MessagesCount++
 				newMess := stream.AddMessage(mes.ID, mes.Values)
 				m.emitMessageAdded(*stream, newMess)
 			}

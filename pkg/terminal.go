@@ -64,7 +64,7 @@ func NewTerminal(app *tview.Application) *Terminal {
 
 func (t *Terminal) BindMonitor(monitor *Monitor) {
 	monitor.OnNewStream(func(stream Stream) {
-		t.events.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount), 0, nil)
+		t.events.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()), 0, nil)
 		t.app.QueueUpdateDraw(func() {})
 	})
 
@@ -72,7 +72,7 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 		key := t.events.FindItems(stream.Name, "", true, false)
 
 		t.app.QueueUpdateDraw(func() {
-			t.events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount))
+			t.events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()))
 		})
 	})
 
