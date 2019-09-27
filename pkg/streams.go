@@ -56,10 +56,17 @@ type StreamMessage struct {
 }
 
 func (m *StreamMessage) ParseContent() string {
+	var list []string
+	for k, _ := range m.Content {
+		list = append(list, k)
+	}
+
+	sort.Strings(list)
+
 	var content string
-	for k, v := range m.Content {
-		content += fmt.Sprintf("Field: %s\r\n", k)
-		content += fmt.Sprintf("Value: %s\r\n\r\n", v)
+	for _, i := range list {
+		content += fmt.Sprintf("Field: %s\r\n", i)
+		content += fmt.Sprintf("Value: %s\r\n\r\n", m.Content[i])
 	}
 
 	return content
