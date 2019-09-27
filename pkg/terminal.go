@@ -10,9 +10,10 @@ var color = tcell.NewRGBColor(64, 69, 82)
 
 type Terminal struct {
 	app            *tview.Application
-	events         *tview.List
+	streams        *tview.List
 	messages       *tview.List
 	messageContent *tview.TextView
+	activeStream   Stream
 	Flex           *tview.Flex
 }
 
@@ -53,7 +54,7 @@ func NewTerminal(app *tview.Application) *Terminal {
 
 	t := &Terminal{
 		app:            app,
-		events:         events,
+		streams:        events,
 		messages:       messages,
 		messageContent: text,
 		Flex:           flex,
@@ -64,19 +65,23 @@ func NewTerminal(app *tview.Application) *Terminal {
 
 func (t *Terminal) BindMonitor(monitor *Monitor) {
 	monitor.OnNewStream(func(stream Stream) {
-		t.events.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()), 0, nil)
+		t.streams.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()), 0, nil)
 		t.app.QueueUpdateDraw(func() {})
 	})
 
 	monitor.OnNewMessage(func(stream Stream, message StreamMessage) {
-		key := t.events.FindItems(stream.Name, "", true, false)
+		key := t.streams.FindItems(stream.Name, "", true, false)
 
 		t.app.QueueUpdateDraw(func() {
-			t.events.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()))
+			t.streams.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()))
 		})
+
+		if t.activeStream.Name == stream.Name && t.messages.GetFocusable().HasFocus() {
+			t.messages.AddItem(message.ID, stream.Name, 0, nil)
+		}
 	})
 
-	t.events.SetSelectedFunc(func(key int, main, secondary string, short rune) {
+	t.streams.SetSelectedFunc(func(key int, main, secondary string, short rune) {
 		s := monitor.Streams.Find(main)
 		if s == nil {
 			return
@@ -90,6 +95,7 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 
 		t.app.QueueUpdate(func() {})
 		t.app.SetFocus(t.messages)
+		t.activeStream = *s
 	})
 
 	t.messages.SetSelectedFunc(func(key int, main, secondary string, short rune) {
