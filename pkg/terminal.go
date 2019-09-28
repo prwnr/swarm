@@ -70,10 +70,13 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 	})
 
 	monitor.OnNewMessage(func(stream Stream, message StreamMessage) {
-		key := t.streams.FindItems(stream.Name, "", true, false)
+		key := t.FindStreamKey(stream)
+		if key < 0 {
+			return
+		}
 
 		t.app.QueueUpdateDraw(func() {
-			t.streams.SetItemText(key[0], stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()))
+			t.streams.SetItemText(key, stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()))
 		})
 
 		if t.activeStream.Name == stream.Name && t.messages.GetFocusable().HasFocus() {
@@ -112,4 +115,18 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 		t.messageContent.Clear()
 		_, _ = fmt.Fprint(t.messageContent, m.ParseContent())
 	})
+}
+
+func (t *Terminal) FindStreamKey(stream Stream) int {
+	keys := t.streams.FindItems(stream.Name, "", true, false)
+
+	var m string
+	for _, k := range keys {
+		m, _ = t.streams.GetItemText(k)
+		if m == stream.Name {
+			return k
+		}
+	}
+
+	return -1
 }
