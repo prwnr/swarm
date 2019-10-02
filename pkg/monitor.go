@@ -8,6 +8,7 @@ import (
 
 const StreamCommand = "XADD"
 
+// Monitor connects with Redis and reads streams and messages from it
 type Monitor struct {
 	Redis           *redis.Client
 	Streams         *Streams
@@ -15,6 +16,7 @@ type Monitor struct {
 	messageHandlers []func(stream Stream, message StreamMessage)
 }
 
+// NewMonitor creates monitor struct for usage.
 func NewMonitor(c *redis.Client) *Monitor {
 	return &Monitor{
 		Redis:   c,
@@ -22,6 +24,8 @@ func NewMonitor(c *redis.Client) *Monitor {
 	}
 }
 
+// StartMonitoring uses Redis MONITOR command to catch all incoming streams
+// and starts listening on them, adding them to Streams collection.
 func (m *Monitor) StartMonitoring() {
 	var events []string
 	var errorsCount int
@@ -29,7 +33,7 @@ func (m *Monitor) StartMonitoring() {
 	for {
 		res, err := m.Redis.Do("MONITOR").String()
 		if err != nil {
-			fmt.Errorf(err.Error())
+			_ = fmt.Errorf(err.Error())
 			errorsCount++
 			if errorsCount > 5 {
 				panic(fmt.Sprintf("MONITOR keeps failing, last error: %v", err))
@@ -77,10 +81,12 @@ func (m *Monitor) readEvent(stream *Stream) {
 	}
 }
 
+// OnNewStream assigns handlers that should be invoked when Monitor catches new stream by
 func (m *Monitor) OnNewStream(handler func(stream Stream)) {
 	m.streamHandlers = append(m.streamHandlers, handler)
 }
 
+// OnNewMessage assigns handlers that should be invoked when Monitor reads new message from a Stream
 func (m *Monitor) OnNewMessage(handler func(stream Stream, message StreamMessage)) {
 	m.messageHandlers = append(m.messageHandlers, handler)
 }

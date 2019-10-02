@@ -27,7 +27,7 @@ func main() {
 
 	go monitor.StartMonitoring()
 
-	if err := app.SetRoot(terminal.Flex, true).Run(); err != nil {
+	if err := app.SetRoot(terminal.Layout, true).Run(); err != nil {
 		panic(err)
 	}
 }

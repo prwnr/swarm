@@ -14,10 +14,68 @@ type Terminal struct {
 	messages       *tview.List
 	messageContent *tview.TextView
 	activeStream   Stream
-	Flex           *tview.Flex
+	Layout         *tview.Flex
 }
 
 func NewTerminal(app *tview.Application) *Terminal {
+	t := &Terminal{
+		app: app,
+	}
+
+	tabs := makeTabs()
+	pages := tview.NewPages()
+	pages.AddPage("1", makeStreamsPage(t), true, true)
+	pages.AddPage("2", makeListenersPage(t), true, false)
+
+	layout := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(tabs, 1, 1, false).
+		AddItem(pages, 0, 1, true)
+	layout.SetBackgroundColor(color)
+
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			app.SetFocus(t.streams)
+		}
+
+		if event.Key() == tcell.KeyRune {
+			if event.Rune() == 49 {
+				tabs.Highlight("1").ScrollToHighlight()
+				pages.SwitchToPage("1")
+			} else if event.Rune() == 50 {
+				tabs.Highlight("2").ScrollToHighlight()
+				pages.SwitchToPage("2")
+			}
+		}
+
+		return event
+	})
+
+	t.Layout = layout
+
+	return t
+}
+
+// makeTabs creates the information about how many tabs/pages are there
+// and what numbers are associated with them
+func makeTabs() *tview.TextView {
+	tabs := tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(true).
+		SetWrap(false)
+	tabs.SetBackgroundColor(color)
+	tabs.Highlight("1")
+
+	_, _ = fmt.Fprintf(tabs, `%d ["%d"][white]%s[white][""]  `, 1, 1, "Streams")
+	_, _ = fmt.Fprintf(tabs, `%d ["%d"][white]%s[white][""]  `, 2, 2, "Listeners")
+
+	return tabs
+}
+
+// makeStreamsPage prepares the content of the Streams page
+// where it has active Events list, messages list of a selected Event
+// and a content of a message
+func makeStreamsPage(t *Terminal) *tview.Flex {
 	events := tview.NewList().ShowSecondaryText(true)
 	events.SetBorder(true).SetBackgroundColor(color)
 	events.SetSelectedBackgroundColor(color).SetSecondaryTextColor(tcell.ColorWhite)
@@ -31,38 +89,42 @@ func NewTerminal(app *tview.Application) *Terminal {
 	text := tview.NewTextView()
 	text.SetBorder(true).SetTitle("Message content").SetBackgroundColor(color)
 	text.SetChangedFunc(func() {
-		app.QueueUpdateDraw(func() {})
+		t.app.QueueUpdateDraw(func() {})
 	})
-
-	app.SetFocus(events)
-
+	t.app.SetFocus(events)
 	flex := tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(events, 0, 1, true).
 			AddItem(messages, 0, 1, false), 0, 1, true).
 		AddItem(text, 0, 3, false)
+	flex.SetBackgroundColor(color)
 
-	flex.SetBackgroundColor(tcell.ColorDefault)
+	t.streams = events
+	t.messages = messages
+	t.messageContent = text
 
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			app.SetFocus(events)
-		}
-
-		return event
-	})
-
-	t := &Terminal{
-		app:            app,
-		streams:        events,
-		messages:       messages,
-		messageContent: text,
-		Flex:           flex,
-	}
-
-	return t
+	return flex
 }
 
+// makeListenersPage prepares the content of the Listeners page
+// where it shows active listeners and their statuses
+// works only when artisan binary is properly detected
+func makeListenersPage(t *Terminal) *tview.Flex {
+	text := tview.NewTextView()
+	text.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
+	text.SetChangedFunc(func() {
+		t.app.QueueUpdateDraw(func() {})
+	})
+	_, _ = fmt.Fprint(text, "Laravel artisan not detected. Listeners won't work.")
+
+	flex := tview.NewFlex().
+		AddItem(text, 0, 3, false)
+	flex.SetBackgroundColor(color)
+
+	return flex
+}
+
+// BindMonitor binds terminal actions (view updates) to streamer monitor events.
 func (t *Terminal) BindMonitor(monitor *Monitor) {
 	monitor.OnNewStream(func(stream Stream) {
 		t.streams.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()), 0, nil)
@@ -117,6 +179,7 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 	})
 }
 
+// FindStreamKey returns match on a stream name from current streams list in terminal view.
 func (t *Terminal) FindStreamKey(stream Stream) int {
 	keys := t.streams.FindItems(stream.Name, "", true, false)
 
