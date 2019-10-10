@@ -1,4 +1,4 @@
-module stream-monitor
+module greed
 
 go 1.13
 

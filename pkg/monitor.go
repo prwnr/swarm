@@ -24,6 +24,12 @@ func NewMonitor(c *redis.Client) *Monitor {
 	}
 }
 
+func (m *Monitor) AddListener(l *Listener) {
+	m.OnNewStream(func(s Stream) {
+		go l.Listen(s)
+	})
+}
+
 // StartMonitoring uses Redis MONITOR command to catch all incoming streams
 // and starts listening on them, adding them to Streams collection.
 func (m *Monitor) StartMonitoring() {
@@ -36,7 +42,7 @@ func (m *Monitor) StartMonitoring() {
 			_ = fmt.Errorf(err.Error())
 			errorsCount++
 			if errorsCount > 5 {
-				panic(fmt.Sprintf("MONITOR keeps failing, last error: %v", err))
+				panic(fmt.Sprintf("MONITOR keeps stopped, last error: %v", err))
 			}
 
 			continue

@@ -1,23 +1,26 @@
-package pkg
+package internal
 
 import (
 	"fmt"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
+	"greed/pkg"
 )
 
 var color = tcell.NewRGBColor(64, 69, 82)
 
 type Terminal struct {
-	app            *tview.Application
-	streams        *tview.List
-	messages       *tview.List
-	messageContent *tview.TextView
-	activeStream   Stream
-	Layout         *tview.Flex
+	app             *tview.Application
+	streams         *tview.List
+	listeners       *tview.List
+	listenersOutput *tview.TextView
+	messages        *tview.List
+	messageContent  *tview.TextView
+	activeStream    pkg.Stream
+	Layout          *tview.Flex
 }
 
-func NewTerminal(app *tview.Application) *Terminal {
+func NewTerminal(app *tview.Application, withListener bool) *Terminal {
 	t := &Terminal{
 		app: app,
 	}
@@ -25,7 +28,7 @@ func NewTerminal(app *tview.Application) *Terminal {
 	tabs := makeTabs()
 	pages := tview.NewPages()
 	pages.AddPage("1", makeStreamsPage(t), true, true)
-	pages.AddPage("2", makeListenersPage(t), true, false)
+	pages.AddPage("2", makeListenersPage(t, withListener), true, false)
 
 	layout := tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -78,12 +81,15 @@ func makeTabs() *tview.TextView {
 func makeStreamsPage(t *Terminal) *tview.Flex {
 	events := tview.NewList().ShowSecondaryText(true)
 	events.SetBorder(true).SetBackgroundColor(color)
-	events.SetSelectedBackgroundColor(color).SetSecondaryTextColor(tcell.ColorWhite)
+	events.SetSelectedTextColor(color)
+	events.SetSelectedBackgroundColor(tcell.ColorWhite)
+	events.SetSecondaryTextColor(tcell.ColorWhite)
 	events.SetTitle("Active Streams list")
 
 	messages := tview.NewList().ShowSecondaryText(false)
 	messages.SetBorder(true).SetBackgroundColor(color)
-	messages.SetSelectedBackgroundColor(color)
+	messages.SetSelectedBackgroundColor(tcell.ColorWhite)
+	messages.SetSelectedTextColor(color)
 	messages.SetTitle("Stream messages list")
 
 	text := tview.NewTextView()
@@ -109,29 +115,46 @@ func makeStreamsPage(t *Terminal) *tview.Flex {
 // makeListenersPage prepares the content of the Listeners page
 // where it shows active listeners and their statuses
 // works only when artisan binary is properly detected
-func makeListenersPage(t *Terminal) *tview.Flex {
-	text := tview.NewTextView()
-	text.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
-	text.SetChangedFunc(func() {
-		t.app.QueueUpdateDraw(func() {})
-	})
-	_, _ = fmt.Fprint(text, "Laravel artisan not detected. Listeners won't work.")
-
-	flex := tview.NewFlex().
-		AddItem(text, 0, 3, false)
+func makeListenersPage(t *Terminal, withListener bool) *tview.Flex {
+	flex := tview.NewFlex()
 	flex.SetBackgroundColor(color)
+	if !withListener {
+		text := tview.NewTextView()
+		text.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
+		text.SetChangedFunc(func() {
+			t.app.QueueUpdateDraw(func() {})
+		})
+		_, _ = fmt.Fprint(text, "Artisan not detected. Listening is not available.")
+
+		flex.AddItem(text, 0, 3, false)
+	} else {
+		t.listeners = tview.NewList().ShowSecondaryText(true)
+		t.listeners.SetBorder(true).SetBackgroundColor(color)
+		t.listeners.SetSelectedBackgroundColor(tcell.ColorWhite)
+		t.listeners.SetSelectedTextColor(color)
+		t.listeners.SetSecondaryTextColor(tcell.ColorWhite)
+		t.listeners.SetTitle("Listeners list")
+
+		t.listenersOutput = tview.NewTextView()
+		t.listenersOutput.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
+		t.listenersOutput.SetChangedFunc(func() {
+			t.app.QueueUpdateDraw(func() {})
+		})
+
+		flex.AddItem(t.listeners, 0, 1, true)
+		flex.AddItem(t.listenersOutput, 0, 2, false)
+	}
 
 	return flex
 }
 
 // BindMonitor binds terminal actions (view updates) to streamer monitor events.
-func (t *Terminal) BindMonitor(monitor *Monitor) {
-	monitor.OnNewStream(func(stream Stream) {
+func (t *Terminal) BindMonitor(monitor *pkg.Monitor) {
+	monitor.OnNewStream(func(stream pkg.Stream) {
 		t.streams.AddItem(stream.Name, fmt.Sprintf("- messages count: %d", stream.MessagesCount()), 0, nil)
-		t.app.QueueUpdateDraw(func() {})
 	})
 
-	monitor.OnNewMessage(func(stream Stream, message StreamMessage) {
+	monitor.OnNewMessage(func(stream pkg.Stream, message pkg.StreamMessage) {
 		key := t.FindStreamKey(stream)
 		if key < 0 {
 			return
@@ -180,13 +203,54 @@ func (t *Terminal) BindMonitor(monitor *Monitor) {
 }
 
 // FindStreamKey returns match on a stream name from current streams list in terminal view.
-func (t *Terminal) FindStreamKey(stream Stream) int {
+func (t *Terminal) FindStreamKey(stream pkg.Stream) int {
 	keys := t.streams.FindItems(stream.Name, "", true, false)
 
 	var m string
 	for _, k := range keys {
 		m, _ = t.streams.GetItemText(k)
 		if m == stream.Name {
+			return k
+		}
+	}
+
+	return -1
+}
+
+func (t *Terminal) BindListener(l *pkg.Listener) {
+	l.OnNewListener(func(a string) {
+		t.listeners.AddItem(a, "Status: [green]OK[green]", 0, nil)
+	})
+
+	l.OnListenerChange(func(listener pkg.StreamListener) {
+		key := t.FindListenerKey(listener.Name)
+		if key < 0 {
+			return
+		}
+
+		t.app.QueueUpdateDraw(func() {
+			t.listeners.SetItemText(key, listener.Name, fmt.Sprintf("Status: %s", listener.GetStatus()))
+		})
+	})
+
+	t.listeners.SetSelectedFunc(func(key int, main, secondary string, short rune) {
+		lis, ok := l.Listeners[main]
+		if !ok {
+			return
+		}
+
+		t.listenersOutput.Clear()
+		_, _ = fmt.Fprint(t.listenersOutput, lis.ParseOutput())
+	})
+}
+
+func (t *Terminal) FindListenerKey(name string) int {
+	keys := t.listeners.FindItems(name, "", true, false)
+
+	var m string
+	for _, k := range keys {
+		m, _ = t.streams.GetItemText(k)
+		if m == name {
 			return k
 		}
 	}

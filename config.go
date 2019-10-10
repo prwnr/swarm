@@ -1,4 +1,4 @@
-package stream_monitor
+package greed
 
 import (
 	"encoding/json"
