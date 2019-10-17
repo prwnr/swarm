@@ -33,7 +33,6 @@ func (m *Monitor) AddListener(l *Listener) {
 // StartMonitoring uses Redis MONITOR command to catch all incoming streams
 // and starts listening on them, adding them to Streams collection.
 func (m *Monitor) StartMonitoring() {
-	var events []string
 	var errorsCount int
 
 	for {
@@ -49,22 +48,23 @@ func (m *Monitor) StartMonitoring() {
 		}
 
 		split := strings.Split(strings.Replace(res, "\"", "", -1), " ")
-		if len(split) > 3 && strings.ToUpper(split[3]) == StreamCommand {
-			e := split[4]
-			if sliceContains(events, e) {
-				continue
-			}
-
-			events = append(events, e)
-			stream := &Stream{Name: e}
-			m.Streams.Push(stream)
-			m.emitStreamAdded(*stream)
-			go m.readEvent(stream)
+		if len(split) <= 3 || strings.ToUpper(split[3]) != StreamCommand {
+			continue
 		}
+
+		name := split[4]
+		if found := m.Streams.Find(name); found != nil {
+			continue
+		}
+
+		stream := &Stream{Name: name}
+		m.Streams.Push(stream)
+		m.emitStreamAdded(*stream)
+		go m.readEvents(stream)
 	}
 }
 
-func (m *Monitor) readEvent(stream *Stream) {
+func (m *Monitor) readEvents(stream *Stream) {
 	messages, _ := m.Redis.XRange(stream.Name, "-", "+").Result()
 	for _, mes := range messages {
 		_ = mes
@@ -107,15 +107,4 @@ func (m *Monitor) emitMessageAdded(stream Stream, message StreamMessage) {
 	for _, l := range m.messageHandlers {
 		l(stream, message)
 	}
-}
-
-// SliceContains checks if slice of strings contains given string
-func sliceContains(s []string, l string) bool {
-	for _, v := range s {
-		if v == l {
-			return true
-		}
-	}
-
-	return false
 }

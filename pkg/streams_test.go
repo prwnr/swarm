@@ -38,7 +38,7 @@ func TestStreams_Find(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Streams{
-				Collection: tt.fields.Collection,
+				collection: tt.fields.Collection,
 			}
 			if got := s.Find(tt.args.key); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Find() = %v, want %v", got, tt.want)
@@ -88,7 +88,7 @@ func TestStreams_Push(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Streams{
-				Collection: tt.fields.Collection,
+				collection: tt.fields.Collection,
 			}
 
 			s.Push(tt.args.stream)
@@ -96,8 +96,8 @@ func TestStreams_Push(t *testing.T) {
 				t.Errorf("Find() = %v, want %v", found, tt.args.stream)
 			}
 
-			if got := len(s.Collection); got != tt.wantCount {
-				t.Errorf("len(s.Collection) = %v, want %v", got, tt.wantCount)
+			if got := len(s.collection); got != tt.wantCount {
+				t.Errorf("len(s.collection) = %v, want %v", got, tt.wantCount)
 			}
 		})
 	}

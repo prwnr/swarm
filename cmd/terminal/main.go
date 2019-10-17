@@ -33,6 +33,7 @@ func main() {
 		terminal.BindListener(listener)
 		monitor.AddListener(listener)
 	}
+
 	go monitor.StartMonitoring()
 
 	if err := app.SetRoot(terminal.Layout, true).Run(); err != nil {

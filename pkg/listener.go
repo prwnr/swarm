@@ -3,9 +3,6 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"greed"
-	"io"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -13,7 +10,7 @@ import (
 
 // Listener struct
 type Listener struct {
-	Listeners               map[string]*StreamListener
+	Items                   map[string]*StreamListener
 	newListenerHandlers     []func(name string)
 	listenerChangedHandlers []func(listener StreamListener)
 	artisan                 *Artisan
@@ -35,6 +32,8 @@ func NewListener() (*Listener, error) {
 	return listener, nil
 }
 
+// Listen starts listening via Artisan command call and adds output to the stack.
+// Restarts command listening when it returns error code 1.
 func (l *Listener) Listen(stream Stream) {
 	lis := l.AddStreamListener(stream.Name)
 	if lis.stopped {
@@ -90,11 +89,11 @@ func (l *Listener) Listen(stream Stream) {
 }
 
 func (l *Listener) AddStreamListener(name string) *StreamListener {
-	if l.Listeners == nil {
-		l.Listeners = make(map[string]*StreamListener)
+	if l.Items == nil {
+		l.Items = make(map[string]*StreamListener)
 	}
 
-	lis, ok := l.Listeners[name]
+	lis, ok := l.Items[name]
 	if ok {
 		return lis
 	}
@@ -104,7 +103,7 @@ func (l *Listener) AddStreamListener(name string) *StreamListener {
 		Output: nil,
 	}
 
-	l.Listeners[name] = lis
+	l.Items[name] = lis
 	l.emitNewListener(name)
 
 	return lis
@@ -155,7 +154,8 @@ func (s StreamListener) IsFailing(output string) bool {
 	return strings.Contains(output, "Listener error. Failed processing message")
 }
 
-func (s StreamListener) GetStatus() string {
+// Status of StreamListener as a formatted string.
+func (s StreamListener) Status() string {
 	if s.error {
 		return "[red]WARNING[red]"
 	}
@@ -169,108 +169,4 @@ func (s StreamListener) GetStatus() string {
 	}
 
 	return "[green]OK[green]"
-}
-
-// Artisan struct for Laravel artisan commands execution
-type Artisan struct {
-	Main   string
-	args   []string
-	config string
-}
-
-// NewArtisan creates new artisan command
-func NewArtisan() *Artisan {
-	configPath := greed.Config().ArtisanPath
-	var args []string
-	var mainExec string
-
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		for _, i := range strings.Split(configPath, " ") {
-			args = append(args, i)
-		}
-
-		for _, j := range []string{"php", "artisan"} {
-			args = append(args, j)
-		}
-
-		mainExec, args = args[0], args[1:]
-	} else {
-		mainExec = "php"
-		artisanPath := fmt.Sprintf("%s/%s", configPath, "artisan")
-		args = []string{artisanPath}
-	}
-
-	return &Artisan{
-		Main:   mainExec,
-		args:   args,
-		config: configPath,
-	}
-}
-
-// Exec runs artisan command
-func (a *Artisan) Exec(args ...string) ([]byte, *exec.Cmd, error) {
-	cmd := exec.Command(a.Main, a.parseArgs(args)...)
-
-	output, err := cmd.Output()
-	return output, cmd, err
-}
-
-// ExecPipe runs artisan command constantly gathering all its output if the command is still running.
-// Usable by listeners/queues.
-func (a *Artisan) ExecPipe(handle func(output string, cms *exec.Cmd) error, args ...string) (*exec.Cmd, error) {
-	cmd := exec.Command(a.Main, a.parseArgs(args)...)
-
-	stdout, err := cmd.StdoutPipe()
-	err = cmd.Start()
-	if err != nil {
-		panic(err)
-	}
-
-	buff := make([]byte, 1024)
-	var n int
-	for err == nil {
-		n, err = stdout.Read(buff)
-		if n > 0 {
-			err := handle(string(buff[:n]), cmd)
-			if err != nil {
-				break
-			}
-		}
-	}
-
-	_ = cmd.Wait()
-
-	return cmd, nil
-}
-
-func (a *Artisan) parseArgs(args []string) []string {
-	execArgs := a.args
-	for _, i := range args {
-		execArgs = append(execArgs, i)
-	}
-
-	return execArgs
-}
-
-func copyAndCapture(w io.Writer, r io.Reader) ([]byte, error) {
-	var out []byte
-	buf := make([]byte, 1024, 1024)
-	for {
-		n, err := r.Read(buf[:])
-		if n > 0 {
-			d := buf[:n]
-			out = append(out, d...)
-			_, err := w.Write(d)
-			if err != nil {
-				return out, err
-			}
-		}
-		if err != nil {
-			// Read returns io.EOF at the end of file, which is not an error for us
-			if err == io.EOF {
-				err = nil
-			}
-			return out, err
-		}
-	}
 }

@@ -86,25 +86,30 @@ func (m *StreamMessage) ParseContent() string {
 
 // Streams holds collection of streams.
 type Streams struct {
-	Collection map[string]*Stream
+	collection map[string]*Stream
+}
+
+// All returns collection of currently stored streams.
+func (s *Streams) All() map[string]*Stream {
+	return s.collection
 }
 
 // Push stream to collection.
 func (s *Streams) Push(stream *Stream) {
-	if s.Collection == nil {
-		s.Collection = make(map[string]*Stream)
+	if s.collection == nil {
+		s.collection = make(map[string]*Stream)
 	}
 
-	if _, ok := s.Collection[stream.Name]; ok {
+	if _, ok := s.collection[stream.Name]; ok {
 		return
 	}
 
-	s.Collection[stream.Name] = stream
+	s.collection[stream.Name] = stream
 }
 
 // Find returns stream by key (name of the stream).
 func (s *Streams) Find(key string) *Stream {
-	stream, ok := s.Collection[key]
+	stream, ok := s.collection[key]
 
 	if !ok {
 		return nil

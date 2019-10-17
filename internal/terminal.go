@@ -10,19 +10,21 @@ import (
 var color = tcell.NewRGBColor(64, 69, 82)
 
 type Terminal struct {
-	app             *tview.Application
-	streams         *tview.List
-	listeners       *tview.List
-	listenersOutput *tview.TextView
-	messages        *tview.List
-	messageContent  *tview.TextView
-	activeStream    pkg.Stream
-	Layout          *tview.Flex
+	app                *tview.Application
+	streams            *tview.List
+	listeners          *tview.List
+	listenersOutput    *tview.TextView
+	messages           *tview.List
+	messageContent     *tview.TextView
+	activeStream       pkg.Stream
+	printDefaultOutput chan bool
+	Layout             *tview.Flex
 }
 
 func NewTerminal(app *tview.Application, withListener bool) *Terminal {
 	t := &Terminal{
 		app: app,
+		printDefaultOutput: make(chan bool),
 	}
 
 	tabs := makeTabs()
@@ -37,10 +39,6 @@ func NewTerminal(app *tview.Application, withListener bool) *Terminal {
 	layout.SetBackgroundColor(color)
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			app.SetFocus(t.streams)
-		}
-
 		if event.Key() == tcell.KeyRune {
 			if event.Rune() == 49 {
 				tabs.Highlight("1").ScrollToHighlight()
@@ -48,6 +46,9 @@ func NewTerminal(app *tview.Application, withListener bool) *Terminal {
 			} else if event.Rune() == 50 {
 				tabs.Highlight("2").ScrollToHighlight()
 				pages.SwitchToPage("2")
+				if t.listeners != nil {
+					t.printDefaultOutput <- true
+				}
 			}
 		}
 
@@ -91,12 +92,21 @@ func makeStreamsPage(t *Terminal) *tview.Flex {
 	messages.SetSelectedBackgroundColor(tcell.ColorWhite)
 	messages.SetSelectedTextColor(color)
 	messages.SetTitle("Stream messages list")
+	messages.SetDoneFunc(func() {
+		t.app.SetFocus(t.streams)
+	})
 
 	text := tview.NewTextView()
 	text.SetBorder(true).SetTitle("Message content").SetBackgroundColor(color)
 	text.SetChangedFunc(func() {
 		t.app.QueueUpdateDraw(func() {})
 	})
+	text.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			t.app.SetFocus(t.streams)
+		}
+	})
+
 	t.app.SetFocus(events)
 	flex := tview.NewFlex().
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
@@ -127,23 +137,32 @@ func makeListenersPage(t *Terminal, withListener bool) *tview.Flex {
 		_, _ = fmt.Fprint(text, "Artisan not detected. Listening is not available.")
 
 		flex.AddItem(text, 0, 3, false)
-	} else {
-		t.listeners = tview.NewList().ShowSecondaryText(true)
-		t.listeners.SetBorder(true).SetBackgroundColor(color)
-		t.listeners.SetSelectedBackgroundColor(tcell.ColorWhite)
-		t.listeners.SetSelectedTextColor(color)
-		t.listeners.SetSecondaryTextColor(tcell.ColorWhite)
-		t.listeners.SetTitle("Listeners list")
 
-		t.listenersOutput = tview.NewTextView()
-		t.listenersOutput.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
-		t.listenersOutput.SetChangedFunc(func() {
-			t.app.QueueUpdateDraw(func() {})
-		})
-
-		flex.AddItem(t.listeners, 0, 1, true)
-		flex.AddItem(t.listenersOutput, 0, 2, false)
+		return flex
 	}
+
+	t.listeners = tview.NewList().ShowSecondaryText(true)
+	t.listeners.SetBorder(true).SetBackgroundColor(color)
+	t.listeners.SetSelectedBackgroundColor(tcell.ColorWhite)
+	t.listeners.SetSelectedTextColor(color)
+	t.listeners.SetSecondaryTextColor(tcell.ColorWhite)
+	t.listeners.SetTitle("Listeners list")
+
+	t.listenersOutput = tview.NewTextView()
+	t.listenersOutput.SetBorder(true).SetTitle("Info").SetBackgroundColor(color)
+	t.listenersOutput.SetChangedFunc(func() {
+		t.app.QueueUpdateDraw(func() {})
+	})
+	t.listenersOutput.SetScrollable(true)
+
+	t.listenersOutput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			t.app.SetFocus(t.listeners)
+		}
+	})
+
+	flex.AddItem(t.listeners, 0, 1, true)
+	flex.AddItem(t.listenersOutput, 0, 2, false)
 
 	return flex
 }
@@ -218,6 +237,22 @@ func (t *Terminal) FindStreamKey(stream pkg.Stream) int {
 }
 
 func (t *Terminal) BindListener(l *pkg.Listener) {
+	go func() {
+		for {
+			select {
+			case <-t.printDefaultOutput:
+				main, _ := t.listeners.GetItemText(t.listeners.GetCurrentItem())
+				lis, ok := l.Items[main]
+				if !ok {
+					continue
+				}
+
+				t.listenersOutput.Clear()
+				_, _ = fmt.Fprint(t.listenersOutput, lis.ParseOutput())
+			}
+		}
+	}()
+
 	l.OnNewListener(func(a string) {
 		t.listeners.AddItem(a, "Status: [green]OK[green]", 0, nil)
 	})
@@ -229,18 +264,22 @@ func (t *Terminal) BindListener(l *pkg.Listener) {
 		}
 
 		t.app.QueueUpdateDraw(func() {
-			t.listeners.SetItemText(key, listener.Name, fmt.Sprintf("Status: %s", listener.GetStatus()))
+			t.listeners.SetItemText(key, listener.Name, fmt.Sprintf("Status: %s", listener.Status()))
 		})
 	})
 
-	t.listeners.SetSelectedFunc(func(key int, main, secondary string, short rune) {
-		lis, ok := l.Listeners[main]
+	t.listeners.SetChangedFunc(func(key int, main string, secondary string, short rune) {
+		lis, ok := l.Items[main]
 		if !ok {
 			return
 		}
 
 		t.listenersOutput.Clear()
 		_, _ = fmt.Fprint(t.listenersOutput, lis.ParseOutput())
+	})
+
+	t.listeners.SetSelectedFunc(func(key int, main, secondary string, short rune) {
+		t.app.SetFocus(t.listenersOutput)
 	})
 }
 
