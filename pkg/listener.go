@@ -12,7 +12,7 @@ import (
 type Listener struct {
 	Items                   map[string]*StreamListener
 	newListenerHandlers     []func(name string)
-	listenerChangedHandlers []func(listener StreamListener)
+	listenerChangedHandlers []func(listener StreamListener, lastOutput string)
 	artisan                 *Artisan
 }
 
@@ -40,6 +40,7 @@ func (l *Listener) Listen(stream Stream) {
 		return
 	}
 
+	var out string
 	messages := stream.GetMessagesList()
 	lastID := "0-0"
 	if len(messages) > 0 {
@@ -55,16 +56,17 @@ func (l *Listener) Listen(stream Stream) {
 				return errors.New("stopped")
 			}
 
-			lis.Output = append(lis.Output, fmt.Sprintf("%s: %s", time.Now().Format("01-02-2006 15:04:05"), output))
+			out = fmt.Sprintf("%s: %s", time.Now().Format("01-02-2006 15:04:05"), output)
+			lis.Output = append(lis.Output, out)
 			if lis.HasNoListeners(output) {
 				lis.stopped = true
-				l.emitListenerChanged(*lis)
+				l.emitListenerChanged(*lis, out)
 				return errors.New("stopped")
 			}
 
 			if lis.IsFailing(output) {
 				lis.warning = true
-				l.emitListenerChanged(*lis)
+				l.emitListenerChanged(*lis, out)
 			}
 
 			return nil
@@ -81,7 +83,7 @@ func (l *Listener) Listen(stream Stream) {
 		code := cmd.ProcessState.ExitCode()
 		if code == 1 {
 			lis.error = true
-			l.emitListenerChanged(*lis)
+			l.emitListenerChanged(*lis, out)
 			args = []string{"streamer:listen", stream.Name}
 			continue
 		}
@@ -119,13 +121,13 @@ func (l *Listener) emitNewListener(name string) {
 	}
 }
 
-func (l *Listener) OnListenerChange(handle func(listener StreamListener)) {
+func (l *Listener) OnListenerChange(handle func(listener StreamListener, lastOutput string)) {
 	l.listenerChangedHandlers = append(l.listenerChangedHandlers, handle)
 }
 
-func (l *Listener) emitListenerChanged(listener StreamListener) {
+func (l *Listener) emitListenerChanged(listener StreamListener, lastOutput string) {
 	for _, h := range l.listenerChangedHandlers {
-		h(listener)
+		h(listener, lastOutput)
 	}
 }
 

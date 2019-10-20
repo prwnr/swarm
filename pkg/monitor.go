@@ -41,7 +41,7 @@ func (m *Monitor) StartMonitoring() {
 			_ = fmt.Errorf(err.Error())
 			errorsCount++
 			if errorsCount > 5 {
-				panic(fmt.Sprintf("MONITOR keeps stopped, last error: %v", err))
+				panic(fmt.Sprintf("MONITOR keeps failing, last error: %v", err))
 			}
 
 			continue

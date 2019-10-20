@@ -241,6 +241,10 @@ func (t *Terminal) BindListener(l *pkg.Listener) {
 		for {
 			select {
 			case <-t.printDefaultOutput:
+				if l.Items == nil {
+					continue
+				}
+
 				main, _ := t.listeners.GetItemText(t.listeners.GetCurrentItem())
 				lis, ok := l.Items[main]
 				if !ok {
@@ -257,10 +261,14 @@ func (t *Terminal) BindListener(l *pkg.Listener) {
 		t.listeners.AddItem(a, "Status: [green]OK[green]", 0, nil)
 	})
 
-	l.OnListenerChange(func(listener pkg.StreamListener) {
+	l.OnListenerChange(func(listener pkg.StreamListener, lastOutput string) {
 		key := t.FindListenerKey(listener.Name)
 		if key < 0 {
 			return
+		}
+
+		if key == t.listeners.GetCurrentItem() {
+			_, _ = fmt.Fprint(t.listenersOutput, lastOutput)
 		}
 
 		t.app.QueueUpdateDraw(func() {
