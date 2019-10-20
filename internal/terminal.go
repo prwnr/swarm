@@ -23,7 +23,7 @@ type Terminal struct {
 
 func NewTerminal(app *tview.Application, withListener bool) *Terminal {
 	t := &Terminal{
-		app: app,
+		app:                app,
 		printDefaultOutput: make(chan bool),
 	}
 
@@ -257,8 +257,8 @@ func (t *Terminal) BindListener(l *pkg.Listener) {
 		}
 	}()
 
-	l.OnNewListener(func(a string) {
-		t.listeners.AddItem(a, "Status: [green]OK[green]", 0, nil)
+	l.OnNewListener(func(listener pkg.StreamListener) {
+		t.listeners.AddItem(listener.Name, fmt.Sprintf("Status: %s", listener.Status()), 0, nil)
 	})
 
 	l.OnListenerChange(func(listener pkg.StreamListener, lastOutput string) {

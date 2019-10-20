@@ -11,7 +11,7 @@ import (
 // Listener struct
 type Listener struct {
 	Items                   map[string]*StreamListener
-	newListenerHandlers     []func(name string)
+	newListenerHandlers     []func(listener StreamListener)
 	listenerChangedHandlers []func(listener StreamListener, lastOutput string)
 	artisan                 *Artisan
 }
@@ -106,18 +106,18 @@ func (l *Listener) AddStreamListener(name string) *StreamListener {
 	}
 
 	l.Items[name] = lis
-	l.emitNewListener(name)
+	l.emitNewListener(*lis)
 
 	return lis
 }
 
-func (l *Listener) OnNewListener(handle func(a string)) {
+func (l *Listener) OnNewListener(handle func(listener StreamListener)) {
 	l.newListenerHandlers = append(l.newListenerHandlers, handle)
 }
 
-func (l *Listener) emitNewListener(name string) {
+func (l *Listener) emitNewListener(listener StreamListener) {
 	for _, h := range l.newListenerHandlers {
-		h(name)
+		h(listener)
 	}
 }
 
