@@ -2,10 +2,10 @@ package pkg
 
 import (
 	"fmt"
-	"swarm"
 	"os"
 	"os/exec"
 	"strings"
+	"swarm"
 )
 
 // Artisan struct for Laravel artisan commands execution.

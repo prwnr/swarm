@@ -2,8 +2,10 @@ package internal
 
 import (
 	"fmt"
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
+	"strings"
 	"swarm/pkg"
 )
 
@@ -205,7 +207,7 @@ func (t *Terminal) BindMonitor(monitor *pkg.Monitor) {
 		t.activeStream = *s
 	})
 
-	t.messages.SetSelectedFunc(func(key int, main, secondary string, short rune) {
+	t.messages.SetChangedFunc(func(key int, main, secondary string, short rune) {
 		s := monitor.Streams.Find(secondary)
 		if s == nil {
 			return
@@ -218,6 +220,14 @@ func (t *Terminal) BindMonitor(monitor *pkg.Monitor) {
 
 		t.messageContent.Clear()
 		_, _ = fmt.Fprint(t.messageContent, m.ParseContent())
+	})
+
+	t.messages.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlR {
+			_ = clipboard.WriteAll(strings.TrimSpace(t.messageContent.GetText(false)))
+		}
+
+		return event
 	})
 }
 
