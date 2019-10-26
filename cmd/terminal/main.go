@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/rivo/tview"
-	"greed"
-	"greed/internal"
-	"greed/pkg"
+	"swarm"
+	"swarm/internal"
+	"swarm/pkg"
 )
 
 func main() {
-	config := greed.Config()
+	config := swarm.Config()
 
 	client := redis.NewClient(&redis.Options{
 		Addr:        fmt.Sprintf("%s:%d", config.RedisHost, config.RedisPort),

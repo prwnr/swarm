@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"fmt"
-	"greed"
+	"swarm"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,7 +16,7 @@ type Artisan struct {
 
 // NewArtisan creates Artisan struct with base arguments definition.
 func NewArtisan() *Artisan {
-	configPath := greed.Config().ArtisanPath
+	configPath := swarm.Config().ArtisanPath
 	var args []string
 	var baseExec string
 

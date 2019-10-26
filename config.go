@@ -1,4 +1,4 @@
-package greed
+package swarm
 
 import (
 	"encoding/json"

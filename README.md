@@ -1,4 +1,4 @@
-# Greed - a stream monitor
+# Swarm - a stream monitor
 
 Redis Streams monitor package written in Go.
 

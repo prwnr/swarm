@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
-	"greed/pkg"
+	"swarm/pkg"
 )
 
 var color = tcell.NewRGBColor(64, 69, 82)
