@@ -48,7 +48,7 @@ func (l *Listener) Listen(stream Stream) {
 	}
 
 	id := fmt.Sprintf("--last_id=%s", lastID)
-	args := []string{"streamer:listen", stream.Name, id}
+	args := []string{"streamer:listen", stream.Name, "--group=monitor", "--consumer=monitor", id}
 
 	for {
 		cmd, err := l.artisan.ExecPipe(func(output string, cmd *exec.Cmd) error {
@@ -84,7 +84,7 @@ func (l *Listener) Listen(stream Stream) {
 		if code == 1 {
 			lis.error = true
 			l.emitListenerChanged(*lis, out)
-			args = []string{"streamer:listen", stream.Name}
+			args = []string{"streamer:listen", stream.Name, "--group=monitor", "--consumer=monitor"}
 			continue
 		}
 	}

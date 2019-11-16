@@ -1,12 +1,9 @@
 package pkg
 
 import (
-	"fmt"
 	"github.com/go-redis/redis"
-	"strings"
+	"time"
 )
-
-const StreamCommand = "XADD"
 
 // Monitor connects with Redis and reads streams and messages from it
 type Monitor struct {
@@ -33,34 +30,38 @@ func (m *Monitor) AddListener(l *Listener) {
 // StartMonitoring uses Redis MONITOR command to catch all incoming streams
 // and starts listening on them, adding them to Streams collection.
 func (m *Monitor) StartMonitoring() {
-	var errorsCount int
-
+	//var errorsCount int
+	checkedKeys := make(map[string]string)
+	tick := time.NewTicker(time.Second * 1).C
 	for {
-		res, err := m.Redis.Do("MONITOR").String()
-		if err != nil {
-			_ = fmt.Errorf(err.Error())
-			errorsCount++
-			if errorsCount > 5 {
-				panic(fmt.Sprintf("MONITOR keeps failing, last error: %v", err))
+		select {
+		case <-tick:
+			keys, err := m.Redis.Keys("*").Result()
+			if err != nil {
+				continue
 			}
 
-			continue
-		}
+			for _, k := range keys {
+				if _, ok := checkedKeys[k]; ok {
+					continue
+				}
 
-		split := strings.Split(strings.Replace(res, "\"", "", -1), " ")
-		if len(split) <= 3 || strings.ToUpper(split[3]) != StreamCommand {
-			continue
-		}
+				t, _ := m.Redis.Type(k).Result()
+				checkedKeys[k] = t
+			}
 
-		name := split[4]
-		if found := m.Streams.Find(name); found != nil {
-			continue
-		}
+			for k, t := range checkedKeys {
+				found := m.Streams.Find(k)
+				if found != nil || t != "stream" {
+					continue
+				}
 
-		stream := &Stream{Name: name}
-		m.Streams.Push(stream)
-		m.emitStreamAdded(*stream)
-		go m.readEvents(stream)
+				stream := &Stream{Name: k}
+				m.Streams.Push(stream)
+				m.emitStreamAdded(*stream)
+				go m.readEvents(stream)
+			}
+		}
 	}
 }
 
