@@ -307,11 +307,13 @@ func (t *Terminal) FindListenerKey(name string) int {
 
 	var m string
 	for _, k := range keys {
-		m, _ = t.streams.GetItemText(k)
+		m, _ = t.listeners.GetItemText(k)
 		if m == name {
 			return k
 		}
 	}
+
+	pkg.LogWarning(fmt.Sprintf("Listener %s not found in Listeners List", name))
 
 	return -1
 }
