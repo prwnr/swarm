@@ -84,6 +84,7 @@ func (l *Listener) Listen(stream Stream) {
 		if code == 1 {
 			lis.error = true
 			l.emitListenerChanged(*lis, out)
+			LogWarning(out)
 			args = []string{"streamer:listen", stream.Name, "--group=monitor", "--consumer=monitor"}
 			continue
 		}

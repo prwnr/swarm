@@ -215,6 +215,7 @@ func (t *Terminal) BindMonitor(monitor *pkg.Monitor) {
 
 		m, err := s.GetMessage(main)
 		if err != nil {
+			pkg.LogWarning(err.Error())
 			return
 		}
 

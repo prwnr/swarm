@@ -38,6 +38,7 @@ func (m *Monitor) StartMonitoring() {
 		case <-tick:
 			keys, err := m.Redis.Keys("*").Result()
 			if err != nil {
+				LogError(err.Error())
 				continue
 			}
 
@@ -66,7 +67,11 @@ func (m *Monitor) StartMonitoring() {
 }
 
 func (m *Monitor) readEvents(stream *Stream) {
-	messages, _ := m.Redis.XRange(stream.Name, "-", "+").Result()
+	messages, err := m.Redis.XRange(stream.Name, "-", "+").Result()
+	if err != nil {
+		LogWarning(err.Error())
+	}
+
 	for _, mes := range messages {
 		_ = mes
 		newMess := stream.AddMessage(mes.ID, mes.Values)
@@ -74,10 +79,15 @@ func (m *Monitor) readEvents(stream *Stream) {
 	}
 
 	for {
-		newMessages, _ := m.Redis.XRead(&redis.XReadArgs{
+		newMessages, err := m.Redis.XRead(&redis.XReadArgs{
 			Streams: []string{stream.Name, "$"},
 			Block:   0,
 		}).Result()
+
+		if err != nil {
+			LogWarning(err.Error())
+		}
+
 		for _, xStream := range newMessages {
 			_ = xStream.Stream
 			for _, mes := range xStream.Messages {

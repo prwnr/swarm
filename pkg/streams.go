@@ -34,7 +34,7 @@ func (s *Stream) AddMessage(id string, message map[string]interface{}) StreamMes
 func (s *Stream) GetMessage(ID string) (*StreamMessage, error) {
 	m, ok := s.Messages[ID]
 	if !ok {
-		return nil, errors.New("there are no messages with given ID")
+		return nil, errors.New(fmt.Sprintf("there are no messages with given ID: %s", ID))
 	}
 
 	return &m, nil
