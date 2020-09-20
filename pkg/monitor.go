@@ -21,12 +21,6 @@ func NewMonitor(c *redis.Client) *Monitor {
 	}
 }
 
-func (m *Monitor) AddListener(l *Listener) {
-	m.OnNewStream(func(s Stream) {
-		go l.Listen(s)
-	})
-}
-
 // StartMonitoring uses Redis MONITOR command to catch all incoming streams
 // and starts listening on them, adding them to Streams collection.
 func (m *Monitor) StartMonitoring() {
@@ -47,7 +41,11 @@ func (m *Monitor) StartMonitoring() {
 					continue
 				}
 
-				t, _ := m.Redis.Type(k).Result()
+				t, err := m.Redis.Type(k).Result()
+				if err != nil {
+					LogError(err.Error())
+					continue
+				}
 				checkedKeys[k] = t
 			}
 

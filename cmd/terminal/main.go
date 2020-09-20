@@ -31,7 +31,7 @@ func main() {
 	terminal.BindMonitor(monitor)
 	if err == nil {
 		terminal.BindListener(listener)
-		monitor.AddListener(listener)
+		listener.StartListening()
 	} else {
 		pkg.LogWarning(err.Error())
 	}

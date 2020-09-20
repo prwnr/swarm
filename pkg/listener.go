@@ -32,6 +32,32 @@ func NewListener() (*Listener, error) {
 	return listener, nil
 }
 
+// StartListening on all streams that streamer:list command yields out.
+func (l *Listener) StartListening() {
+	args := []string{"streamer:list", "--compact"}
+	cmd, err := l.artisan.ExecPipe(func(output string, cmd *exec.Cmd) error {
+		streams := strings.Fields(output)
+		for _, s := range streams {
+			if s == "Event" {
+				continue
+			}
+
+			go l.Listen(Stream{Name: s})
+		}
+
+		return nil
+	}, args...)
+
+	if err != nil {
+		return
+	}
+
+	code := cmd.ProcessState.ExitCode()
+	if code == 1 {
+		LogWarning("Failed to start listening on one of the streams.")
+	}
+}
+
 // Listen starts listening via Artisan command call and adds output to the stack.
 // Restarts command listening when it returns error code 1.
 func (l *Listener) Listen(stream Stream) {

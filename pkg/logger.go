@@ -26,7 +26,6 @@ func LogDebug(text string) {
 	Log(text, DebugLog)
 }
 
-
 // LogWarning writes to swarm log line marked as warning.
 func LogWarning(text string) {
 	Log(text, WarningLog)
